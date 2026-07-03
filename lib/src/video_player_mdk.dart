@@ -279,6 +279,8 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
     player.setProperty('avformat.rtsp_transport', 'tcp');
     player.setProperty('avformat.extension_picky', '0');
     player.setProperty('avformat.allowed_segment_extensions', 'ALL');
+    player.setProperty('avformat.http_persistent', '0');
+    player.setProperty('avformat.reconnect_at_eof', '1');
     if (dataSource.sourceType != DataSourceType.network) {
       // for m3u8 local file etc.
       player.setProperty('avio.protocol_whitelist',
@@ -308,7 +310,14 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
       dataSource.httpHeaders.forEach((key, value) {
         headers += '$key: $value\r\n';
       });
+      // Ensure User-Agent is set (some CDNs block without it)
+      if (!dataSource.httpHeaders.keys.any((k) => k.toLowerCase() == 'user-agent')) {
+        headers += 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36\r\n';
+      }
       player.setProperty('avio.headers', headers);
+    } else {
+      // Set default User-Agent for all HTTP requests
+      player.setProperty('avio.headers', 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36\r\n');
     }
     player.media = uri;
     int ret = await player.prepare(); // required!
