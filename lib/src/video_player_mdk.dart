@@ -322,6 +322,14 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
     player.media = uri;
     int ret = await player.prepare(); // required!
     if (ret < 0) {
+      // Retry with software decoders — hardware decoders may not support all streams
+      _log.fine('prepare failed (ret=$ret), retrying with software decoders...');
+      player.videoDecoders = ['FFmpeg', 'dav1d'];
+      player.state = mdk.PlaybackState.stopped;
+      await Future.delayed(const Duration(milliseconds: 200));
+      ret = await player.prepare();
+    }
+    if (ret < 0) {
       // no throw, handle error in controller.addListener
       _players[-hashCode] = player;
       player.streamCtl.addError(PlatformException(
@@ -338,6 +346,15 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
         height: _maxHeight,
         tunnel: _tunnel,
         fit: _fitMaxSize);
+    if (tex < 0) {
+      // Retry once after a brief delay — decoder may need time to report size
+      await Future.delayed(const Duration(milliseconds: 300));
+      tex = await player.updateTexture(
+          width: _maxWidth,
+          height: _maxHeight,
+          tunnel: _tunnel,
+          fit: _fitMaxSize);
+    }
     if (tex < 0) {
       _players[-hashCode] = player;
       player.streamCtl.addError(PlatformException(
